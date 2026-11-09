@@ -39,7 +39,28 @@ huggingface-cli login
 
 ## How to run
 
-Run commands are added here as each stage of the pipeline lands.
+Inference needs a CUDA GPU. The easiest route is `notebooks/colab_runs.ipynb` in Google
+Colab, which runs every step below in order. From a shell:
 
-Datasets, model outputs and hidden states are written to `data/` and `outputs/`, which are
-not committed.
+```bash
+# Unit tests (CPU only)
+python -m pytest -q
+
+# Neutral prompt: baseline answers, answer-letter logits (P3) and hidden states (P4)
+python -m src.infer --model Qwen/Qwen3-1.7B --prompt neutral --save-hidden
+
+# P1: one pass per confidence target
+for t in 0 0.5 0.75 0.9; do python -m src.infer --model Qwen/Qwen3-1.7B --prompt p1 --t $t; done
+
+# P2: verbalized confidence (optional)
+python -m src.generate --model Qwen/Qwen3-1.7B
+
+# Fit P3b and P4, score every policy on the test split, write tables and figures
+python -m src.report --run-dir outputs/Qwen__Qwen3-1.7B
+```
+
+Add `--limit 200` to an inference command for a quick pilot. Runs are resumable: rerunning a
+command skips chunks that are already written.
+
+Datasets, model outputs, hidden states and reports are written to `data/` and `outputs/`,
+which are not committed.
