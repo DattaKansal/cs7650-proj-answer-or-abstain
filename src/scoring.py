@@ -72,6 +72,7 @@ def summarize(correct, abstain, reference_correct, t: float) -> dict[str, float]
         "abstention_rate": rate,
         "selective_accuracy": selective_accuracy(correct, abstain),
         "always_answer_score": always_answer_score(reference_correct, t),
+        "always_abstain_score": 0.0,
         "random_matched_score": random_abstention_score(reference_correct, rate, t),
         "oracle_score": oracle_score(reference_correct),
         "regret": regret(score, reference_correct),

@@ -54,7 +54,10 @@ def load_hidden(run_dir: Path) -> np.ndarray:
     return np.concatenate([np.load(p) for p in parts]).astype(np.float32)
 
 
-def fit_probe(hidden, correct, train, val, layers, regularization=(0.001, 0.01, 0.1)):
+PROBE_REGULARIZATION = (1e-5, 1e-4, 1e-3, 1e-2, 1e-1)  # inverse strength C; smaller = stronger
+
+
+def fit_probe(hidden, correct, train, val, layers, regularization=PROBE_REGULARIZATION):
     """P4: logistic-regression probes predicting correctness from one layer's hidden state.
 
     Fits one probe per (layer, C) on the train rows and picks the pair with the lowest
