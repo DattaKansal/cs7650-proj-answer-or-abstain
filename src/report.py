@@ -1,7 +1,7 @@
 """Fit P3b and P4, score every policy on the test split, and write tables and figures.
 
 Expects the runs produced by src.infer for one model: neutral (with hidden states) and
-p1_t<t> for each confidence target.
+p1_t<t> for each confidence target. If a p2 run from src.generate exists, P2 is included.
 
 Usage:
     python -m src.report --run-dir outputs/Qwen__Qwen3-1.7B
@@ -15,17 +15,21 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from . import data, infer, policies, prompts, scoring
+from . import data, generate, infer, policies, prompts, scoring
 
 POLICY_LABELS = {
     "P1": "P1 prompt-only",
     "P3": "P3 answer probability",
     "P3b": "P3b + temperature",
     "P4": "P4 probe",
+    "P2": "P2 verbalized",
 }
-# Categorical slots 1-4 of the validated palette; baselines are neutral gray.
-POLICY_COLORS = {"P1": "#2a78d6", "P3": "#eb6834", "P3b": "#1baf7a", "P4": "#eda100"}
-POLICY_MARKERS = {"P1": "o", "P3": "s", "P3b": "^", "P4": "D"}
+# Categorical slots 1-5 of the validated palette, in slot order; baselines are neutral gray.
+POLICY_COLORS = {
+    "P1": "#2a78d6", "P3": "#eb6834", "P3b": "#1baf7a", "P4": "#eda100", "P2": "#e87ba4",
+}
+POLICY_MARKERS = {"P1": "o", "P3": "s", "P3b": "^", "P4": "D", "P2": "v"}
+LOW_LETTER_MASS = 0.5
 BASELINE_COLOR = "#6b6a63"
 INK, MUTED, GRID = "#1f1f1d", "#6b6a63", "#e4e3dd"
 
@@ -54,19 +58,25 @@ def evaluate(run_dir: Path, seed: int = data.DEFAULT_SEED):
     probe_confidence, probe_table = policies.fit_probe(
         hidden, reference, train, val, meta["hidden_layers"]
     )
-    confidence = {
-        "P3": policies.top_probability(logits),
-        "P3b": policies.top_probability(logits, temperature),
-        "P4": probe_confidence,
+    # Each confidence signal is paired with the correctness of the answer it would give.
+    signals = {
+        "P3": (policies.top_probability(logits), reference),
+        "P3b": (policies.top_probability(logits, temperature), reference),
+        "P4": (probe_confidence, reference),
     }
+    p2_parse_rate = None
+    if (run_dir / "p2").exists():
+        p2 = generate.load_run(run_dir / "p2").set_index("qid").loc[neutral["qid"]].reset_index()
+        signals["P2"] = (p2["confidence"].to_numpy(), p2["correct"].to_numpy())
+        p2_parse_rate = float(p2["parsed"][test].mean())
 
     subsets = {"all": test, "math_heavy": test & math_heavy, "other": test & ~math_heavy}
     rows, flips = [], {}
     for t in prompts.THRESHOLDS:
         p1 = load_p1(run_dir, t, neutral["qid"])
         decisions = {"P1": (p1["correct"].to_numpy(), p1["abstain"].to_numpy())}
-        for name, conf in confidence.items():
-            decisions[name] = (reference, scoring.threshold_policy(conf, t))
+        for name, (conf, correct) in signals.items():
+            decisions[name] = (correct, scoring.threshold_policy(conf, t))
         flips[t] = float((p1["answer_choice"] != neutral["answer_choice"])[test].mean())
         for subset, mask in subsets.items():
             for name, (correct, abstain) in decisions.items():
@@ -79,13 +89,15 @@ def evaluate(run_dir: Path, seed: int = data.DEFAULT_SEED):
     signal_rows = [
         {
             "policy": name,
-            "auroc": roc_auc_score(reference[test], conf[test]),
-            "aurc": scoring.aurc(conf[test], reference[test]),
-            "ece": scoring.expected_calibration_error(conf[test], reference[test]),
+            "auroc": roc_auc_score(correct[test], conf[test]),
+            "aurc": scoring.aurc(conf[test], correct[test]),
+            "ece": scoring.expected_calibration_error(conf[test], correct[test]),
             "mean_confidence": float(conf[test].mean()),
+            "accuracy": float(correct[test].mean()),
         }
-        for name, conf in confidence.items()
+        for name, (conf, correct) in signals.items()
     ]
+    low_mass = neutral["letter_mass"].to_numpy() < LOW_LETTER_MASS
     summary = {
         "model": meta["model"],
         "n_test": int(test.sum()),
@@ -93,8 +105,18 @@ def evaluate(run_dir: Path, seed: int = data.DEFAULT_SEED):
         "temperature": temperature,
         "probe": probe_table[probe_table["selected"]].iloc[0].to_dict(),
         "p1_answer_flip_rate": flips,
+        "p2_parse_rate": p2_parse_rate,
+        "neutral_low_letter_mass": {
+            "threshold": LOW_LETTER_MASS,
+            "count": int(low_mass.sum()),
+            "share": float(low_mass.mean()),
+            "by_category": neutral.loc[low_mass, "category"].value_counts().to_dict(),
+        },
     }
-    curves = {name: scoring.risk_coverage(conf[test], reference[test]) for name, conf in confidence.items()}
+    curves = {
+        name: scoring.risk_coverage(conf[test], correct[test])
+        for name, (conf, correct) in signals.items()
+    }
     return results, pd.DataFrame(signal_rows), probe_table, summary, curves
 
 
@@ -115,6 +137,8 @@ def _policy_lines(ax, results: pd.DataFrame, column: str) -> None:
     positions = range(len(prompts.THRESHOLDS))
     for name in POLICY_LABELS:
         rows = results[(results["policy"] == name) & (results["subset"] == "all")].sort_values("t")
+        if rows.empty:
+            continue
         ax.plot(positions, rows[column], color=POLICY_COLORS[name], marker=POLICY_MARKERS[name],
                 markersize=7, linewidth=2, label=POLICY_LABELS[name],
                 markeredgecolor="white", markeredgewidth=1.5)
@@ -152,7 +176,7 @@ def make_figures(results, probe_table, summary, curves, out_dir: Path) -> None:
     ax.set_yscale("symlog", linthresh=1)
     ax.set_yticks([-8, -4, -2, -1, 0, 1], ["-8", "-4", "-2", "-1", "0", "1"])
     ax.minorticks_off()
-    ax.axhline(0, color=MUTED, linewidth=0.8)
+    ax.axhline(0, color=BASELINE_COLOR, linewidth=1, label="Always abstain")
     _style(ax, "Confidence target t", "Penalized score per question (symlog)",
            f"Penalized score by target ({model}, MMLU-Pro test)")
     ax.legend(frameon=False, fontsize=8, labelcolor=INK)
@@ -214,7 +238,7 @@ def main() -> None:
               .round(3).to_string(index=False))
     baseline = results[(results["subset"] == "all") & (results["policy"] == "P1")]
     print("\nBaselines (all):")
-    print(baseline[["t", "always_answer_score", "random_matched_score", "oracle_score"]]
+    print(baseline[["t", "always_answer_score", "always_abstain_score", "oracle_score"]]
           .round(3).to_string(index=False))
     print(f"\nWrote tables and figures to {out_dir}")
 
