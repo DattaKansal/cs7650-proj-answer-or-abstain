@@ -38,3 +38,11 @@ def test_fit_probe_finds_the_informative_layer():
     assert int(table[table["selected"]]["layer"].iloc[0]) == 8
     test = index >= 480
     assert confidence[test][correct[test]].mean() > confidence[test][~correct[test]].mean() + 0.3
+
+
+def test_parse_reply_handles_prefilled_and_bad_replies():
+    from src import generate
+
+    assert generate.parse_reply(" C, Confidence: 70", 10, "Answer:") == (2, 0.7, True)
+    assert generate.parse_reply(" C", 10, "Answer:") == (-1, 0.0, False)
+    assert generate.parse_reply(" H, Confidence: 90", 4, "Answer:") == (-1, 0.0, False)
