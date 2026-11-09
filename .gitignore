@@ -1,0 +1,18 @@
+__pycache__/
+*.pyc
+.venv/
+.ipynb_checkpoints/
+.DS_Store
+.env
+
+# local planning notes
+PLAN.md
+
+# data, model outputs, hidden states
+data/
+outputs/
+*.npy
+*.npz
+*.pt
+*.safetensors
+*.parquet

@@ -1,0 +1,12 @@
+torch
+transformers>=4.51
+accelerate
+datasets
+scikit-learn
+numpy
+pandas
+pyarrow
+scipy
+matplotlib
+tqdm
+pytest
