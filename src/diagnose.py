@@ -22,7 +22,7 @@ def main() -> None:
     parser.add_argument("--model", default="Qwen/Qwen3-1.7B")
     parser.add_argument("--n", type=int, default=200)
     parser.add_argument("--show", type=int, default=6, help="questions to print top tokens for")
-    parser.add_argument("--prefills", nargs="+", default=["", infer.DEFAULT_PREFILL])
+    parser.add_argument("--prefills", nargs="+", default=["", "Answer:", infer.DEFAULT_PREFILL])
     parser.add_argument("--batch-size", type=int, default=16)
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--dtype", choices=["auto", "bf16", "fp16", "fp32"], default="auto")

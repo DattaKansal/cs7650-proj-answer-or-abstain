@@ -52,7 +52,9 @@ def build_prompt(question: dict, kind: str, t: float | None) -> str:
     raise ValueError(f"unknown prompt kind: {kind}")
 
 
-DEFAULT_PREFILL = "Answer:"
+# MMLU-Pro's own answer format. The open parenthesis makes the next token a bare letter;
+# a looser prefill such as "Answer:" lets some models emit markdown ("**B**") first.
+DEFAULT_PREFILL = "The answer is ("
 
 
 def render_chat(tokenizer, user_text: str, prefill: str = DEFAULT_PREFILL) -> str:
@@ -111,6 +113,18 @@ def letter_logits(next_token_logits: torch.Tensor, token_ids: list[list[int]]):
     return per_letter, letter_mass
 
 
+def check_resumable(out_dir: Path, prefill: str) -> None:
+    """Refuse to resume into a directory whose chunks were written with another prefill."""
+    meta_path = out_dir / "meta.json"
+    if meta_path.exists() and any(out_dir.glob("part-*.parquet")):
+        previous = json.loads(meta_path.read_text()).get("prefill")
+        if previous != prefill:
+            raise SystemExit(
+                f"{out_dir} holds chunks written with prefill {previous!r}, not {prefill!r}. "
+                "Delete that directory or choose another --out."
+            )
+
+
 def select_questions(questions: list[dict], limit: int | None, seed: int) -> list[dict]:
     if limit is None or limit >= len(questions):
         return questions
@@ -142,6 +156,7 @@ def run(args: argparse.Namespace) -> Path:
     lengths = [len(ids) for ids in tokenizer(texts, add_special_tokens=False)["input_ids"]]
     order = sorted(range(len(questions)), key=lambda i: -lengths[i])  # longest first
 
+    check_resumable(out_dir, args.prefill)
     (out_dir / "meta.json").write_text(
         json.dumps(
             {
