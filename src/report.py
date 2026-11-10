@@ -133,6 +133,12 @@ def _style(ax, xlabel: str, ylabel: str, title: str) -> None:
         ax.spines[side].set_color(GRID)
 
 
+def _legend_outside(ax) -> None:
+    """Put the legend to the right of the plot so it never covers the lines."""
+    ax.legend(frameon=False, fontsize=8, labelcolor=INK, loc="center left",
+              bbox_to_anchor=(1.02, 0.5), borderaxespad=0)
+
+
 def _policy_lines(ax, results: pd.DataFrame, column: str) -> None:
     positions = range(len(prompts.THRESHOLDS))
     for name in POLICY_LABELS:
@@ -156,18 +162,18 @@ def make_figures(results, probe_table, summary, curves, out_dir: Path) -> None:
     baselines = overall[overall["policy"] == "P1"].sort_values("t")
     positions = range(len(prompts.THRESHOLDS))
 
-    fig, ax = plt.subplots(figsize=(6, 4))
+    fig, ax = plt.subplots(figsize=(7.6, 4))
     _policy_lines(ax, results, "abstention_rate")
     ax.plot(positions, [1 - summary["test_accuracy"]] * len(prompts.THRESHOLDS), color=BASELINE_COLOR,
             linestyle="--", linewidth=1.5, label="Oracle (abstain when wrong)")
     ax.set_ylim(0, 1)
     _style(ax, "Confidence target t", "Abstention rate", f"Abstention rate by target ({model}, MMLU-Pro test)")
-    ax.legend(frameon=False, fontsize=8, labelcolor=INK)
+    _legend_outside(ax)
     fig.tight_layout()
-    fig.savefig(out_dir / "abstention_vs_t.png", dpi=200)
+    fig.savefig(out_dir / "abstention_vs_t.png", dpi=200, bbox_inches="tight")
     plt.close(fig)
 
-    fig, ax = plt.subplots(figsize=(6, 4))
+    fig, ax = plt.subplots(figsize=(7.6, 4))
     _policy_lines(ax, results, "score")
     ax.plot(positions, baselines["oracle_score"], color=BASELINE_COLOR, linestyle="--",
             linewidth=1.5, label="Oracle")
@@ -179,12 +185,12 @@ def make_figures(results, probe_table, summary, curves, out_dir: Path) -> None:
     ax.axhline(0, color=BASELINE_COLOR, linewidth=1, label="Always abstain")
     _style(ax, "Confidence target t", "Penalized score per question (symlog)",
            f"Penalized score by target ({model}, MMLU-Pro test)")
-    ax.legend(frameon=False, fontsize=8, labelcolor=INK)
+    _legend_outside(ax)
     fig.tight_layout()
-    fig.savefig(out_dir / "score_vs_t.png", dpi=200)
+    fig.savefig(out_dir / "score_vs_t.png", dpi=200, bbox_inches="tight")
     plt.close(fig)
 
-    fig, ax = plt.subplots(figsize=(6, 4))
+    fig, ax = plt.subplots(figsize=(7.6, 4))
     for name, (coverage, risk) in curves.items():
         ax.plot(coverage, risk, color=POLICY_COLORS[name], linewidth=2, label=POLICY_LABELS[name])
     ax.axhline(1 - summary["test_accuracy"], color=BASELINE_COLOR, linestyle=":", linewidth=1.5,
@@ -193,9 +199,9 @@ def make_figures(results, probe_table, summary, curves, out_dir: Path) -> None:
     ax.set_ylim(0, 1)
     _style(ax, "Coverage (share of questions answered)", "Selective risk (error rate on answered)",
            f"Risk-coverage ({model}, MMLU-Pro test)")
-    ax.legend(frameon=False, fontsize=8, labelcolor=INK)
+    _legend_outside(ax)
     fig.tight_layout()
-    fig.savefig(out_dir / "risk_coverage.png", dpi=200)
+    fig.savefig(out_dir / "risk_coverage.png", dpi=200, bbox_inches="tight")
     plt.close(fig)
 
     best_c = probe_table.loc[probe_table.groupby("layer")["val_log_loss"].idxmin()]
@@ -208,7 +214,7 @@ def make_figures(results, probe_table, summary, curves, out_dir: Path) -> None:
     ax.set_xticks(list(best_c["layer"]))
     _style(ax, "Layer", "Validation AUROC", f"Probe: predicting correctness by layer ({model})")
     fig.tight_layout()
-    fig.savefig(out_dir / "probe_by_layer.png", dpi=200)
+    fig.savefig(out_dir / "probe_by_layer.png", dpi=200, bbox_inches="tight")
     plt.close(fig)
 
 
