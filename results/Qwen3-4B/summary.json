@@ -1,0 +1,35 @@
+{
+  "model": "Qwen/Qwen3-4B",
+  "n_test": 2407,
+  "test_accuracy": 0.4362276692978812,
+  "temperature": 6.029783583984762,
+  "probe": {
+    "layer": 28,
+    "C": 0.001,
+    "val_log_loss": 0.5627750247449761,
+    "val_auroc": 0.7651329339535092,
+    "train_auroc": 0.8202791266421019,
+    "selected": true
+  },
+  "p1_answer_flip_rate": {
+    "0.0": 0.12671375155795597,
+    "0.5": 0.12588284171167427,
+    "0.75": 0.12879102617366014,
+    "0.9": 0.12671375155795597
+  },
+  "p2_parse_rate": 0.9995845450768591,
+  "neutral_low_letter_mass": {
+    "threshold": 0.5,
+    "count": 21,
+    "share": 0.001745345744680851,
+    "by_category": {
+      "engineering": 6,
+      "chemistry": 5,
+      "business": 4,
+      "physics": 3,
+      "biology": 1,
+      "economics": 1,
+      "math": 1
+    }
+  }
+}
