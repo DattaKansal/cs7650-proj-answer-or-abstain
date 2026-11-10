@@ -64,3 +64,19 @@ command skips chunks that are already written.
 
 Datasets, model outputs, hidden states and reports are written to `data/` and `outputs/`,
 which are not committed.
+
+## Results
+
+`results/` holds a snapshot of the report output for each model run so far, on the MMLU-Pro
+test split (2,407 questions):
+
+| File | Contents |
+|---|---|
+| `results.csv` | One row per policy, confidence target and subject group (`all`, `math_heavy`, `other`): penalized score, abstention rate, selective accuracy, baselines, oracle score and regret |
+| `signals.csv` | Per confidence signal: AUROC, AURC, expected calibration error, mean confidence, accuracy |
+| `summary.json` | Test accuracy, fitted temperature, selected probe layer, P1 answer-flip rates, P2 parse rate |
+| `probe_layers.csv` | Probe validation and train metrics for every layer and regularization strength |
+| `*.png` | Abstention rate and penalized score by target, risk-coverage curves, probe AUROC by layer |
+
+These files are copied from `outputs/<model>/report/` after a run; regenerate them with
+`python -m src.report` and copy them again if the runs change.
