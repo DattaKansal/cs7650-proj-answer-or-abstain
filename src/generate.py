@@ -1,4 +1,4 @@
-"""P2: generate "Answer: <letter>, Confidence: <0-100>" replies and parse them.
+"""P2: generate "The answer is (<letter>). Confidence: <0-100>" replies and parse them.
 
 Greedy decoding of a few tokens per question. Output is written in resumable chunks under
 <out>/<model>/p2/, one row per question with the raw reply and the parsed fields.
@@ -49,6 +49,7 @@ def run(args: argparse.Namespace) -> Path:
     lengths = [len(ids) for ids in tokenizer(texts, add_special_tokens=False)["input_ids"]]
     order = sorted(range(len(questions)), key=lambda i: -lengths[i])
 
+    infer.check_resumable(out_dir, args.prefill)
     (out_dir / "meta.json").write_text(
         json.dumps(
             {

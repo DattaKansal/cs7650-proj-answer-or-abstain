@@ -67,12 +67,14 @@ def p2_prompt(question: str, options: list[str]) -> str:
     return (
         "Answer the following multiple-choice question and state how confident you are that "
         "your answer is correct, as a whole number from 0 to 100. Reply in exactly this "
-        'format and with nothing else: "Answer: <letter>, Confidence: <number>"\n\n'
+        'format and with nothing else: "The answer is (<letter>). Confidence: <number>"\n\n'
         + format_question(question, options)
     )
 
 
-_P2_PATTERN = re.compile(r"Answer:\s*\(?([A-J])\)?\b.*?Confidence:\s*(\d{1,3})", re.S | re.I)
+_P2_PATTERN = re.compile(
+    r"(?:Answer:|answer is)\s*\(?([A-J])\)?(?![A-Za-z]).*?Confidence:\s*(\d{1,3})", re.S | re.I
+)
 
 
 def parse_p2(text: str, n_options: int) -> tuple[int | None, float | None]:

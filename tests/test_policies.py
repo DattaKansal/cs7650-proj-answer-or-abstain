@@ -46,3 +46,17 @@ def test_parse_reply_handles_prefilled_and_bad_replies():
     assert generate.parse_reply(" C, Confidence: 70", 10, "Answer:") == (2, 0.7, True)
     assert generate.parse_reply(" C", 10, "Answer:") == (-1, 0.0, False)
     assert generate.parse_reply(" H, Confidence: 90", 4, "Answer:") == (-1, 0.0, False)
+    prefill = "The answer is ("
+    assert generate.parse_reply("C). Confidence: 85", 10, prefill) == (2, 0.85, True)
+    assert generate.parse_reply("<letter>). Confidence: 80", 10, prefill) == (-1, 0.0, False)
+
+
+def test_check_resumable_rejects_a_different_prefill(tmp_path):
+    from src import infer
+
+    infer.check_resumable(tmp_path, "The answer is (")  # empty directory is fine
+    (tmp_path / "meta.json").write_text('{"prefill": "Answer:"}')
+    (tmp_path / "part-00000.parquet").write_text("")
+    infer.check_resumable(tmp_path, "Answer:")
+    with pytest.raises(SystemExit):
+        infer.check_resumable(tmp_path, "The answer is (")
